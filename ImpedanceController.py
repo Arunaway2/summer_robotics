@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+
+
 import numpy as np
 import pinocchio as pin
 from pinocchio.utils import zero, eye
@@ -15,13 +20,19 @@ from pinocchio.robot_wrapper import RobotWrapper
 urdf_path =  TeststandConfig.urdf_path
 meshes_path = TeststandConfig.meshes_path
 
+
+
+
+
 p.connect(p.GUI)
 p.resetSimulation()
 p.setAdditionalSearchPath(pybullet_data.getDataPath())
 plane = p.loadURDF("plane.urdf")
 robot = p.loadURDF(urdf_path, [0,0,1], useFixedBase = 1)
-p.setGravity(0, 0, 9.81)
+p.setGravity(0, 0, -9.81)
 p.setTimeStep(0.001)
+
+
 
 
 class ImpedanceController(object):
@@ -47,7 +58,10 @@ class ImpedanceController(object):
         self.active_joints = active_joints
 
     def compute_forward_kinematics(self, q):
-        pin.framesForwardkinematics(
+#         print(self.pin_robot.model, self.pin_robot.data, q)
+        
+        pin.framesForwardKinematics(
+            
             self.pin_robot.model, self.pin_robot.data, q
         ) 
 
@@ -60,8 +74,8 @@ class ImpedanceController(object):
         )
         frame_config_end = pin.SE3(self.pin_robot.data.oMf[self.frame_end_idx].rotation, np.zeros((3,1)),
         )
-        
-        vel_root_in_world_frame = frame_config_root(
+       
+        vel_root_in_world_frame = frame_config_root.action.dot(
             pin.computeFrameJacobian(
                 self.pin_robot.model,
                 self.pin_robot.data,
@@ -69,17 +83,17 @@ class ImpedanceController(object):
                 self.frame_root_idx,
             )
         ).dot(dq)[0:3]
-        vel_end_inworld_frame = frame_config_end.action.dot(
+        vel_end_in_world_frame = frame_config_end.action.dot(
             pin.computeFrameJacobian(
                 self.pin_robot.model,
                 self.pin_robot.data,
                 q,
-                self.frame_end-idx,
+                self.frame_end_idx,
             )   
         ).dot(dq)[0:3]
         
         return np.subtract(vel_end_in_world_frame, vel_root_in_world_frame).T
-   
+        
 
     def compute_jacobian(self, q):
         self.compute_forward_kinematics(q)
@@ -116,10 +130,18 @@ class ImpedanceController(object):
         jac = jac[:, self.active_joints]
         
         
-        self.F_ = (
-            f +np.matmul(kp,(x-x_des)) + np.matmul(kd, (xd - xd_des).T).T
-        )
+      
+        
+        self.F_ = ( 
+            
+            f + np.matmul(kp,(x - x_des)) + np.matmul(kd, (xd - xd_des).T).T 
+            
+                  )
         tau = -jac.T.dot(self.F_.T)
+    
+        
+    
+        
         final_tau = []
         j = 0
         for i in range(len(self.active_joints)):
@@ -155,8 +177,10 @@ class ImpedanceController(object):
         ]
         jac = jac[:, self.active_joint[i]]
         
-        self.F_ = f + kp * (x - x_des) + kd * (xd - xd_des)
-        tau = -jac.T.dot(self.F_)
+        self.F_ = (
+            f + np.matmul(kp, (x - x_des)) + np.matmul(kd, (xd - xd_des).T).T
+        )
+        tau = -jac.T.dot(self.F_.T)
         final_tau = []
         j = 0
         for i in range (len(self.active_joints)):
@@ -166,6 +190,8 @@ class ImpedanceController(object):
                 final_tau.append(tau[j])
                 j += 1 
         return final_tau    
+
+
 
 
 class ImpedanceControllerTestStand(ImpedanceController):
@@ -214,16 +240,24 @@ class ImpedanceControllerTestStand(ImpedanceController):
         
         x = self.pin_robot.data.oMf[self.frame_end_idx].translation
         xd = jac.dot(dq)
-        
+     
         self.F_ = f + kp * (x - x_des) + kd * (xd - xd_des)
         tau = -jac.T.dot(self.F_)
         
         return tau 
 
 
+
+
+
 robot_model = RobotWrapper.BuildFromURDF(urdf_path, meshes_path)
+pin.framesForwardKinematics(robot_model.model, robot_model.data, np.zeros(3))
 print(robot)
-testController = ImpedanceControllerTestStand("TestStand", robot_model, "HFE", "FOOT", 2, 2 )
+testController = ImpedanceControllerTestStand("TestStand", robot_model, "HFE", "END", 2, 2 )
+useFixedBase=False
+nj = p.getNumJoints(robot)
+
+joint_names =['joint_z', 'HFE', 'KFE', 'END']
 
 
 def move_joints(self, tau):
@@ -236,26 +270,147 @@ def move_joints(self, tau):
         velocityGains=zeroGains,
     )
 
-data  = np.array(p.getJointStates(robot,range(3)))
+# print(p.getJointInfo(robot))
 
-print("this is data")
-print(data[:,0])
 
-pdes = [.1,.1,.1]
-ddes = [.1,.1,.1]
-xdes = [.1,.1,.1]
-xddes = [.1,.1,.1]
-fdes = [0,0,0]
 
-tau = testController.compute_impedance_torques(data[:,0],data[:,1], pdes , ddes, xdes, xddes, fdes)
-print(tau)
-# for i in range(500000):
-#         # TODO: Implement a controller here.
-#         data  = p.getJointStates(robot,range(3))
-#         x = data[0]
+
+
+
+
+
+# print(joint_names)
+
+
+
+
+
+bullet_joint_map = {}
+for ji in range(p.getNumJoints(robot)):
+    bullet_joint_map[
+        p.getJointInfo(robot, ji)[1].decode("UTF-8")
+    ] = ji
+
+
+# print(bullet_joint_map)
+
+
+bullet_joint_ids = np.array(
+        [bullet_joint_map[name] for name in joint_names]
+    )
+
+# print(bullet_joint_ids)
+
+
+
+
+pinocchio_joint_ids = np.array(
+    [robot_model.model.getJointId(name) for name in joint_names]
+)
+
+print(pinocchio_joint_ids)
+
+pin2bullet_joint_only_array = []
+
+# if not useFixedBase:
+#             for i in range(2, nj + 2):
+#                 pin2bullet_joint_only_array.append(
+#                     np.where(pinocchio_joint_ids == i)[0][0]
+#                 )
+# else:
+#             for i in range(1, nj + 1):
+#                 pin2bullet_joint_only_array.append(
+#                     np.where(pinocchio_joint_ids == i)[0][0]
+#                 )
+
+print(pin2bullet_joint_only_array)
+
+
+
+
+
+p.setJointMotorControlArray(
+            robot,
+            bullet_joint_ids,
+            p.VELOCITY_CONTROL,
+            forces=np.zeros(p.getNumJoints(robot)),
+        )
+
+
+
+
+
+
+
+
+for i in range(500000):
+        # TODO: Implement a controller here.
+        data  = p.getJointStates(robot,range(3))
+
+
+        q = np.zeros(3)
+        v = np.zeros(3)
+        for i in range(3):
+            q[i] = data[i][0]
+            v[i] = data[i][1]
+
+
+
+
+
+        pdes = [1,.1,.1]
+        ddes = [.1,.1,.1]
+        xdes = [.1,.1,.1]
+        xddes = [.1,.1,.1]
+        fdes = [1,1,1]
+        tau = np.zeros(1)
+        taus = testController.compute_impedance_torques( q, v, pdes , ddes, xdes, xddes, fdes)
+        tau =np.concatenate((tau,taus), axis = None, out = None)
+        print(tau)
         
-#         tau = testController.compute_impedance_torques( data[:][0],data[:][1], pdes , ddes, xdes, xddes, fdes)
-#         print(tau)
-#         # Step the simulator.
-#         p.stepSimulation()
-#         time.sleep(1./10000.)
+
+        
+        print(type(tau))
+        
+        zeroGains = tau.shape[0] * (0.0,)
+
+        
+        
+        p.setJointMotorControlArray(
+            robot,
+            bullet_joint_ids,
+            p.TORQUE_CONTROL,
+            forces=tau,
+            positionGains=  zeroGains,
+            velocityGains= zeroGains,
+            )
+
+        
+        # Step the simulator.
+        p.stepSimulation()
+        time.sleep(1./10000.)
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
