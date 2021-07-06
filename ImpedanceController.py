@@ -370,8 +370,6 @@ for i in range(500000):
         
 
         
-        print(type(tau))
-        
         zeroGains = tau.shape[0] * (0.0,)
 
         
@@ -389,28 +387,4 @@ for i in range(500000):
         # Step the simulator.
         p.stepSimulation()
         time.sleep(1./10000.)
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
 
