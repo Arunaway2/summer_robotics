@@ -20,20 +20,31 @@ from pinocchio.robot_wrapper import RobotWrapper
 urdf_path =  TeststandConfig.urdf_path
 meshes_path = TeststandConfig.meshes_path
 
+fixed_height = True
 
-
+orn = p.getQuaternionFromEuler([0, 0, 0])
 
 
 p.connect(p.GUI)
 p.resetSimulation()
 p.setAdditionalSearchPath(pybullet_data.getDataPath())
 plane = p.loadURDF("plane.urdf")
-robot = p.loadURDF(urdf_path, [0,0,1], useFixedBase = 1)
+robot = p.loadURDF(urdf_path, [0,0,.5], orn,  useFixedBase = True)
 p.setGravity(0, 0, -9.81)
 p.setTimeStep(0.001)
 
 
-
+if fixed_height:
+        p.createConstraint(
+            robot,
+            0,
+            -1,
+            -1,
+            p.JOINT_FIXED,
+            [0, 0, 0],
+            [0, 0, 0.0],
+            [0, 0, fixed_height],
+        )
 
 class ImpedanceController(object):
     def __init__(
@@ -116,10 +127,13 @@ class ImpedanceController(object):
         x_des = np.array(x_des)
         xd_des = np.array(xd_des)
         f = np.array(f)
-        kp = np.array([[kp[0],0,0], [0, kp[1], 0], [0, 0, kp[2]]])
-        kd = np.array([[kd[0],0,0], [0, kd[1], 0], [0, 0, kd[2]]])
+        kp = np.array([[kp[0], 0, 0], [0, kp[1], 0], [0, 0, kp[2]]])
+
+        kd = np.array([[kd[0], 0, 0], [0, kd[1], 0], [0, 0, kd[2]]])
         
-        
+        ###########################################################
+
+
         self.compute_forward_kinematics(q)
         x = self.compute_distance_between_frames(q)
         xd = self.compute_relative_velocity_between_frames(q, dq)
@@ -152,7 +166,7 @@ class ImpedanceController(object):
                 j += 1 
         return final_tau
     
-    def compute_impedance_torques_world(self,q ):
+    def compute_impedance_torques_world(self, q, dq, kp, kd, x_des, xd_des, f):
         assert np.shape(x_des) == (3,)
         assert np.shape(xd_des) == (3,)
         assert np.shape(f) == (3,)
@@ -216,6 +230,15 @@ class ImpedanceControllerTestStand(ImpedanceController):
         jac = self.compute_jacobian(q)
         
         self.F_ = f + kp *(x - x_des) + kd * (xd - xd_des)
+        # print(kp)
+
+
+        # print( x)
+        # print("######################################")
+        # print( x_des)
+        # print("######################################")
+        # # print(jac)
+        
         tau = -jac.T.dot(self.F_)
         return tau            
 
@@ -253,8 +276,8 @@ class ImpedanceControllerTestStand(ImpedanceController):
 robot_model = RobotWrapper.BuildFromURDF(urdf_path, meshes_path)
 pin.framesForwardKinematics(robot_model.model, robot_model.data, np.zeros(3))
 print(robot)
-testController = ImpedanceControllerTestStand("TestStand", robot_model, "HFE", "END", 2, 2 )
-useFixedBase=False
+testController = ImpedanceControllerTestStand("TestStand", robot_model, "joint_z", "END", 2, 2 )
+# useFixedBase=True
 nj = p.getNumJoints(robot)
 
 joint_names =['joint_z', 'HFE', 'KFE', 'END']
@@ -345,31 +368,36 @@ p.setJointMotorControlArray(
 
 for i in range(500000):
         # TODO: Implement a controller here.
-        data  = p.getJointStates(robot,range(3))
+        data  = p.getJointStates(robot,range(1,3))
 
-
-        q = np.zeros(3)
-        v = np.zeros(3)
-        for i in range(3):
+        print(data)
+        q = np.zeros(2)
+        v = np.zeros(2)
+        for i in range(2):
             q[i] = data[i][0]
             v[i] = data[i][1]
 
 
 
 
-
-        pdes = [1,.1,.1]
-        ddes = [.1,.1,.1]
-        xdes = [.1,.1,.1]
-        xddes = [.1,.1,.1]
-        fdes = [1,1,1]
-        tau = np.zeros(1)
+        pdes = [50,50,50]
+        ddes = [1,1,1]
+        xdes = [0,0,-.2]
+        xddes = [0,0,0]
+        fdes = [0,0,0]
+        tau = np.zeros(4)
         taus = testController.compute_impedance_torques( q, v, pdes , ddes, xdes, xddes, fdes)
         tau =np.concatenate((tau,taus), axis = None, out = None)
+        
+        # print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
+        # print (taus)
+        # print("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+        
+        # tau[0]= 0
+        # tau[1]= 0
+        # tau[2] =.1
+        # tau[3] =0
         print(tau)
-        
-
-        
         zeroGains = tau.shape[0] * (0.0,)
 
         
