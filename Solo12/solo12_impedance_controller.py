@@ -327,7 +327,7 @@ class RobotImpedanceController(ImpedanceController):
                 3,
             )
         )
-    def return_joint_torques(self, all_joint_data, kp, kd, x_des, xd_des, f):
+    def return_joint_torques(self, all_joint_data, impedance_data):
         """
         Returns the joint torques at the current timestep
         Input:
@@ -340,6 +340,17 @@ class RobotImpedanceController(ImpedanceController):
             xd_des : desired velocities with respect to the root frame
             f : feed forward forces
         """
+        #  kp, kd, x_des, xd_des, f
+
+        kp   =   impedance_data[0]
+        kd   =   impedance_data[1]
+        x_des =  impedance_data[2]
+        xd_des = impedance_data[3]
+        f   =    impedance_data[4]
+        
+
+
+
         
         
         for i in range(3,15,3):
