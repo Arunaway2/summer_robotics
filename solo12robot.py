@@ -7,6 +7,7 @@ import numpy as np
 import time
 from bullet_utils.env import BulletEnvWithGround
 from Solo12 import solo12_impedance_controller
+from matplotlib import pyplot as plt 
 class solo12robot(object):
     def __init__(
         self,
@@ -141,46 +142,62 @@ class solo12robot(object):
 
 
 
-    def singlestep( self, step_data, impedance_data, state):
+    def singlestep( self, controller, step_data, impedance_data, state, state2):
 
-#
+
         # length, height, fraction , delta_sim_step, current_sim_step, iteration 
         if state == None:
 
             
-            all_joint_data = p.getJointStates(robot.bullet_model ,range(16))
+            all_joint_data = p.getJointStates(self.bullet_model ,range(16))
             tau = controller.return_joint_torques( all_joint_data , impedance_data) 
-            robot.send_joint_command(tau)
+            self.send_joint_command(tau)
 
             step = 0 
             return step
 
 
         elif state == True:
-             
+
             length = step_data[0] 
             height = step_data[1] 
             fraction = step_data[2] 
             delta_sim_step = step_data[3] 
             current_sim_step = step_data[4]
             steptime = step_data[5]
-
-            current_sim_step -= delta_sim_step
+            pos = step_data[6]
+            xarr = step_data[7]
+            zarr = step_data[8]
+            xopparr = step_data[9]
+            zopparr = step_data[10]
             
-            x = current_sim_step
+            
+
+            current_sim_step += delta_sim_step
+            # print(current_sim_step)
+            # print(pos)
+            x = current_sim_step 
             x_opp = -current_sim_step 
 
-            z =  -.2-height*np.sin((np.pi/(-1*steptime))*current_sim_step)
+            z =  height*np.sin((np.pi/(-1*steptime))*x)
+            
 
             # z =  -.2-height*np.sin((np.pi/length)*x)
 
             impedance_data[2][0] = x
+            
             impedance_data[2][9] = x
+            temp = impedance_data[2][9]
+            xarr.append(temp) 
+
+
             # x positions for the 2 stepping legs
 
-
-            impedance_data[2][2] = z
-            impedance_data[2][11] = z
+            impedance_data[2][2] = z-.2
+            impedance_data[2][11] = z-.2
+            temp2 = impedance_data[2][11]
+            
+            zarr.append(temp2+.2)
             # z positions for the 2 stepping legs
 
 
@@ -188,13 +205,17 @@ class solo12robot(object):
             impedance_data[2][6] = x_opp
             # x positions for the 2 pivoting legs
 
-            
-            
-            all_joint_data = p.getJointStates(robot.bullet_model ,range(16))
-            tau = controller.return_joint_torques( all_joint_data , impedance_data) 
-            robot.send_joint_command(tau)
 
-            return current_sim_step
+           
+            
+
+
+            all_joint_data = p.getJointStates(self.bullet_model ,range(16))
+            tau = controller.return_joint_torques( all_joint_data , impedance_data) 
+            self.send_joint_command(tau)
+            
+
+            return current_sim_step, xarr,zarr, xopparr, zopparr
 
         elif state == False:
 
@@ -205,13 +226,18 @@ class solo12robot(object):
             delta_sim_step = step_data[3] 
             current_sim_step = step_data[4]
             steptime = step_data[5]
+            pos = step_data[6]
+            xarr = step_data[7]
+            zarr = step_data[8]
+            xopparr = step_data[9]
+            zopparr = step_data[10]
 
-            current_sim_step -= delta_sim_step
+            current_sim_step += delta_sim_step
             
-            x = current_sim_step
-            x_opp = -current_sim_step 
-
-            z =  -.2-height*np.sin((np.pi/(-1*steptime))*current_sim_step)
+            x = current_sim_step - steptime
+            x_opp = -current_sim_step + steptime
+ 
+            z =  -.2-height*np.sin((np.pi/(-1*steptime))*x)
 
             # z =  -.2-height*np.sin((np.pi/length)*x)
 
@@ -227,191 +253,103 @@ class solo12robot(object):
 
             impedance_data[2][0] = x_opp
             impedance_data[2][9] = x_opp
+
+            temp = impedance_data[2][9]
+            # print(temp)
+            
+
+            xopparr.append(temp)
+            zopparr.append(0)
             # x positions for the 2 pivoting legs
 
             
-            
-            all_joint_data = p.getJointStates(robot.bullet_model ,range(16))
+            all_joint_data = p.getJointStates(self.bullet_model ,range(16))
             tau = controller.return_joint_torques( all_joint_data , impedance_data) 
-            robot.send_joint_command(tau)
+            self.send_joint_command(tau)
 
-            return current_sim_step
-
+            return current_sim_step, xarr, zarr, xopparr,zopparr
 
     def compute_position(self):
-        all_joint_data = p.getJointStates(robot.bullet_model ,range(16))
+        all_joint_data = p.getJointStates(self.bullet_model ,range(16))
         q1 = np.zeros(12)
         q2 = np.zeros(12)
         q3 = np.zeros(12)
         q4 = np.zeros(12)
-        
-
         for i in range(3):
             q1[i] = all_joint_data[i][0]
-        for i in range(3,6):
-            q2[i] = all_joint_data[i][0]
-        for i in range(6,9):
-            q3[i] = all_joint_data[i][0]
-        for i in range(9,12):
-            q4[i] = all_joint_data[i][0]
+        # for j in range(4,7):
+        #     q2[j] = all_joint_data[j][0]
+        # for k in range(8,11):
+        #     q3[k] = all_joint_data[k][0]
+
+        # for l in range(12,15):
+        #     q4[l] = all_joint_data[l][0]
         
+
         
 
         pin.framesForwardKinematics(
                 
-                robot.pin_model.model, robot.pin_model.data, q1
+                self.pin_model.model, self.pin_model.data, q1
             ) 
-        x1 = ( robot.pin_model.data.oMf[robot.pin_model.model.getFrameId("FL_ANKLE")].translation - robot.pin_model.data.oMf[robot.pin_model.model.getFrameId("FL_HAA")].translation)
+        x1 = ( self.pin_model.data.oMf[self.pin_model.model.getFrameId("FL_ANKLE")].translation - self.pin_model.data.oMf[self.pin_model.model.getFrameId("FL_HAA")].translation)
 
 
 
 
-        pin.framesForwardKinematics(
+        # pin.framesForwardKinematics(
                 
-                robot.pin_model.model, robot.pin_model.data, q2
-            ) 
-        x2 = ( robot.pin_model.data.oMf[robot.pin_model.model.getFrameId("FR_ANKLE")].translation - robot.pin_model.data.oMf[robot.pin_model.model.getFrameId("FR_HAA")].translation)
+        #         self.pin_model.model, self.pin_model.data, q2
+        #     ) 
+        # x2 = ( self.pin_model.data.oMf[self.pin_model.model.getFrameId("FR_ANKLE")].translation - self.pin_model.data.oMf[self.pin_model.model.getFrameId("FR_HAA")].translation)
 
 
-        pin.framesForwardKinematics(
+        # pin.framesForwardKinematics(
                 
-                robot.pin_model.model, robot.pin_model.data, q3
-            ) 
-        x3 = ( robot.pin_model.data.oMf[robot.pin_model.model.getFrameId("HL_ANKLE")].translation - robot.pin_model.data.oMf[robot.pin_model.model.getFrameId("HL_HAA")].translation)
+        #         self.pin_model.model, self.pin_model.data, q3
+        #     ) 
+        # x3 = ( self.pin_model.data.oMf[self.pin_model.model.getFrameId("HL_ANKLE")].translation - self.pin_model.data.oMf[self.pin_model.model.getFrameId("HL_HAA")].translation)
 
 
-        pin.framesForwardKinematics(
+        # pin.framesForwardKinematics(
                 
-                robot.pin_model.model, robot.pin_model.data, q4
-            ) 
-        x4 = ( robot.pin_model.data.oMf[robot.pin_model.model.getFrameId("HR_ANKLE")].translation - robot.pin_model.data.oMf[robot.pin_model.model.getFrameId("HR_HAA")].translation)
+        #         self.pin_model.model, self.pin_model.data, q4
+        #     ) 
+        # x4 = ( self.pin_model.data.oMf[self.pin_model.model.getFrameId("HR_ANKLE")].translation - self.pin_model.data.oMf[self.pin_model.model.getFrameId("HR_HAA")].translation)
 
 
-
-
-
-
-        return x1,x2,x3,x4
 
         
-env = BulletEnvWithGround()
-robot = solo12robot("test")
 
 
-controller = solo12_impedance_controller.RobotImpedanceController(robot)
-robot.pin_model
-#
-pdes = np.ones(12)*500
-ddes = np.ones(12)*10
-# xdes = np.zeros(12)
-xdes = np.array([0, 0.05,-.2,         0, -0.05,-.2,        0, 0.05, -.2,       0, -0.05, -.2])
-xddes = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-fdes = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-
-impedance_data = np.array([pdes, ddes,xdes,xddes, fdes])
-
-#################################################
-
-    # counter = -.2
-        # length = -.2
-        # height = -.07
-        # if step < counter:
-        #     step = counter
-        # else:
-        #     step -= .0001
-            # x = step
-        # z =  -.2-height*np.sin((np.pi/length)*x)
+        return x1
 
 
-state = True
-# state2 = True
-t =0
+    def mpcModel(self, m, dt, size):
+        s = np.ones(size)
+        a = np.zeros(shape=(size, size))
+        s1 = np.array([1,dt,0,-1,0])
+        s2 = np.array([0,1,dt/m,0,-1])
+        np.fill_diagonal(a, s1)
+        print( a )
 
-steptime= .2
-
-for i in range(50000):
-    
- 
-
-    
-
-    
-
-
-
-   
-
-
-    # print()
-
- 
-#
-    
-    if t%steptime < .00001:
-        t = 0
         
-        if state == True:
-            state = False
             
-        elif state == None:
-            state = None
-        else:
-            state = True
-    
-
-    
-    
-    step_data = np.array([
-        -.06,
-        -.03,
-        1,
-        .0001,
-        t,
-        steptime
-    ])
-
-    x1,x2,x3,x4 = robot.compute_position()
-
-    # print(x1[0], "          ", x2[0],"          ", x3[0],"          ", x4[0])
-    
-
-    # # length, height, fraction , delta_sim_step, current_sim_step, step time
-
-    
-
-    t = robot.singlestep(step_data, impedance_data, state)
-    # # print(t)
-    
-    p.stepSimulation()
-    time.sleep(1./10000.)
 
 
 
-#    
-    #     print(x, z, step)
+
         
-    #     xdes[0] = x
-    #     xdes[9] = x
-    #  # x positions for the 2 stepping legs
+
+        # print(a)
 
 
-    #     xdes[2] = z
-    #     xdes[11] = z
-    #  # z positions for the 2 stepping legs
+        # a = np.array([[1,dt/mass,0,-1,0,0,0,0,0,0,],
+        #               [0,1,dt/mass,0,-1,0,0,0,0,0]])
 
+        return a.dot(s)
 
-    #     xdes[3] = x_opp
-    #     xdes[6] = x_opp
-    #  # x positions for the 2 pivoting legs
-
-    #     all_joint_data = p.getJointStates(robot.bullet_model ,range(16))
-    #     tau = controller.return_joint_torques( all_joint_data , impedance_data) 
-    #     robot.send_joint_command(tau)
-
-   
+        # print(a*s)
 
 
 
-
-
-# 
