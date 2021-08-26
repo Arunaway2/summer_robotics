@@ -95,7 +95,7 @@ for i in range(1000):
     p.stepSimulation()
     time.sleep(1./10000.)
 
-final = robot.mpcModel(1, .001, 100)
+final = robot.matrixQP(1, .001, 100)
 # print(final)
 # plt.plot(xarr,zarr, 'ro')
 # plt.ylabel('z values')

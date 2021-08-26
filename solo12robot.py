@@ -8,6 +8,7 @@ import time
 from bullet_utils.env import BulletEnvWithGround
 from Solo12 import solo12_impedance_controller
 from matplotlib import pyplot as plt 
+from scipy.linalg import block_diag
 class solo12robot(object):
     def __init__(
         self,
@@ -24,7 +25,6 @@ class solo12robot(object):
             
         if orn is None:
             orn = p.getQuaternionFromEuler([0, 0, 0])
-
 
         
         self.urdf_path = Solo12Config.urdf_path
@@ -325,14 +325,31 @@ class solo12robot(object):
         return x1
 
 
-    def mpcModel(self, m, dt, size):
-        s = np.ones(size)
-        a = np.zeros(shape=(size, size))
-        s1 = np.array([1,dt,0,-1,0])
-        s2 = np.array([0,1,dt/m,0,-1])
-        np.fill_diagonal(a, s1)
-        print( a )
+    def matrixQP(self, m, dt, size):
+        a = np.array([[1,dt,0,-1,0],
+                     [0,1,dt/m,0,-1]])
 
+        n = (int)(size/5)
+        d = block_diag(*([a]*n))
+
+        print (d)
+        print(np.shape(d))
+
+
+
+
+        # x = np.ones(size)
+        # A = np.zeros(shape=(size, size))
+        # s1 = np.array([1,dt,0,-1,0])
+        # s2 = np.array([0,1,dt/m,0,-1])
+
+        # np.fill_diagonal(A, s1[0])
+
+        
+        # print(A)
+
+        # np.block
+        
         
             
 
@@ -347,7 +364,7 @@ class solo12robot(object):
         # a = np.array([[1,dt/mass,0,-1,0,0,0,0,0,0,],
         #               [0,1,dt/mass,0,-1,0,0,0,0,0]])
 
-        return a.dot(s)
+        return d
 
         # print(a*s)
 
