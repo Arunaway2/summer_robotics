@@ -33,7 +33,7 @@ class solo12robot(object):
             self.urdf_path,
             pos,
             orn,
-            useFixedBase= True
+            useFixedBase= False
             )
 
         self.pin_model = RobotWrapper.BuildFromURDF(self.urdf_path, self.meshes_path)
@@ -58,7 +58,7 @@ class solo12robot(object):
         vec2list = lambda m: np.array(m.T).reshape(-1).tolist()
 
         initial_configuration = (
-        [0.2, 0.0, 1, 0.0, 0.0, 0.0, 1.0]
+        [0.2, 0.0, .25, 0.0, 0.0, 0.0, 1.0]
         + 2 * [0.0, 0.8, -1.6]
         + 2 * [0.0, +0.8, -1.6]
         )   
@@ -334,6 +334,7 @@ class solo12robot(object):
 
         print (d)
         print(np.shape(d))
+        
 
 
 

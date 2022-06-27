@@ -33,7 +33,7 @@ zarr = []
 xopparr = []
 zopparr = []
 
-for i in range(1000):
+for i in range(10000):
  
 # 
     
@@ -95,8 +95,8 @@ for i in range(1000):
     p.stepSimulation()
     time.sleep(1./10000.)
 
-final = robot.matrixQP(1, .001, 100)
-# print(final)
+final = robot.matrixQP(1, .001, 10)
+print(final)
 # plt.plot(xarr,zarr, 'ro')
 # plt.ylabel('z values')
 # plt.xlabel('t or x values')
